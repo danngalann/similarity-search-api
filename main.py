@@ -5,12 +5,31 @@ from typing import List
 from PIL import Image as PILImage
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.openapi.utils import get_openapi
 
 from src.model.Image import Image
 from src.repository.WeaviateRepository import WeaviateRepository
 
 app = FastAPI()
 weaviate_repository = WeaviateRepository()
+
+
+def create_schema():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Similarity Search API",
+        version="1.0.0",
+        description="Search similar text or images",
+        routes=app.routes,
+    )
+    openapi_schema["components"]["schemas"]["Body_upload_image_bulk_upload_image_bulk_post"]['properties']['metadata']['description'] = "An object containing metadata objects indexed by filename. For example: <pre>{file1.png: {author:3}}"
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = create_schema
 
 
 @app.post("/upload-image")
