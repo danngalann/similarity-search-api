@@ -59,6 +59,23 @@ def upload_image_bulk(files: List[UploadFile] = File(...), metadata: str = Form(
     return {"uploaded_images": uploaded_images_for_response, "errors": errors}
 
 
+@app.post('/search-similar-images')
+def search_similar_images(file: UploadFile = File(...), limit: int = 10, return_images: bool = False):
+    try:
+        # Validate the uploaded file
+        pil_image = validate_image(file)
+
+        image = Image(pil_image)
+
+        results = weaviate_repository.get_similar_images(image, limit, return_images)
+
+        return [result.metadata for result in results]
+
+    except HTTPException as exc:
+        # Handle the HTTP exception (e.g., not a valid image file)
+        return {"error": str(exc.detail)}
+
+
 def validate_image(file: UploadFile) -> PILImage:
     # Read the file content
     contents = file.file.read()
@@ -66,7 +83,7 @@ def validate_image(file: UploadFile) -> PILImage:
     # Check if the file type is a valid image (e.g., jpeg, png, gif, etc.)
     image_type = imghdr.what(None, contents)
     if image_type not in ('jpeg', 'png'):
-        raise HTTPException(status_code=400, detail=f"File '{file.filename}' is not a valid image. Only JPEG and PNG are supported.")
+        raise HTTPException(status_code=400,
+                            detail=f"File '{file.filename}' is not a valid image. Only JPEG and PNG are supported.")
 
     return PILImage.open(BytesIO(contents))
-

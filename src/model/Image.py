@@ -35,6 +35,3 @@ class Image:
             metadata=json.loads(result["metadata"]),
             image=image
         )
-
-    def __str__(self):
-        return str(self.metadata)
