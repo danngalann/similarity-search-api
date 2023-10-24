@@ -2,3 +2,5 @@
 .vscode
 __pycache__
 *.py[cod]
+
+weaviate_data
