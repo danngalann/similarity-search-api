@@ -8,7 +8,7 @@ from src.model.Text import Text
 
 class WeaviateRepository:
     def __init__(self):
-        self.client = weaviate.Client("http://localhost:8080")
+        self.client = weaviate.Client("http://weaviate:8080")
         self.client.batch.configure(
             batch_size=100,
             dynamic=True,
