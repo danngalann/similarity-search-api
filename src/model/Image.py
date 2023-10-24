@@ -6,7 +6,10 @@ from PIL import Image as PILImage
 
 
 class Image:
-    def __init__(self, metadata: dict, image: PILImage):
+    def __init__(self, image: PILImage = None, metadata=None):
+        if metadata is None:
+            metadata = {}
+
         self.metadata = metadata
         self.image = image
 
@@ -19,3 +22,19 @@ class Image:
         image.save(buffer, format="JPEG")
 
         return base64.b64encode(buffer.getvalue()).decode()
+
+    @staticmethod
+    def from_result(result):
+        if "image" not in result:
+            image = None
+        else:
+            image_decoded = base64.b64decode(result["image"])
+            image = PILImage.open(BytesIO(image_decoded))
+
+        return Image(
+            metadata=json.loads(result["metadata"]),
+            image=image
+        )
+
+    def __str__(self):
+        return str(self.metadata)

@@ -8,3 +8,10 @@ class Text:
 
     def metadata_as_json(self) -> str:
         return json.dumps(self.metadata)
+
+    @staticmethod
+    def from_result(result):
+        return Text(
+            text=result["text"],
+            metadata=json.loads(result["metadata"])
+        )

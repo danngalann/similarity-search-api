@@ -1,23 +1,14 @@
-import base64
-import json
-from io import BytesIO
+from PIL import Image as PILImage
 
-import weaviate
-from PIL import Image
+from src.model.Image import Image
+from src.repository.WeaviateRepository import WeaviateRepository
 
-client = weaviate.Client("http://localhost:8080")  # Replace the URL with that of your Weaviate instance
+repo = WeaviateRepository()
 
-image = Image.open("target.jpg")
-buffer = BytesIO()
-image = image.convert("RGB")
-image.save(buffer, format="JPEG")
-img_b64 = base64.b64encode(buffer.getvalue()).decode()
+pil_image = PILImage.open("target.jpg")
+image = Image(pil_image, {"filename": "target.jpg"})
 
-# The properties from our schema
-target_data = {
-    "image": img_b64,
-}
+results = repo.get_similar_images(image, limit=2)
 
-result = client.query.get("Image", ["metadata"]).with_near_image(target_data, encode=False).with_limit(2).do()
+print([result.__str__() for result in results])
 
-print(result)
