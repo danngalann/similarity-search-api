@@ -6,15 +6,17 @@ from PIL import Image as PILImage
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.openapi.utils import get_openapi
+from pydantic import BaseModel
 
 from src.model.Image import Image
+from src.model.Text import Text
 from src.repository.WeaviateRepository import WeaviateRepository
 
 app = FastAPI()
 weaviate_repository = WeaviateRepository()
 
 
-def create_schema():
+def create_openapi_schema():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
@@ -23,13 +25,14 @@ def create_schema():
         description="Search similar text or images",
         routes=app.routes,
     )
-    openapi_schema["components"]["schemas"]["Body_upload_image_bulk_upload_image_bulk_post"]['properties']['metadata']['description'] = "An object containing metadata objects indexed by filename. For example: <pre>{file1.png: {author:3}}"
+    openapi_schema["components"]["schemas"]["Body_upload_image_bulk_upload_image_bulk_post"]['properties']['metadata'][
+        'description'] = "An object containing metadata objects indexed by filename. For example: <pre>{file1.png: {author:3}}"
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
 
-app.openapi = create_schema
+app.openapi = create_openapi_schema
 
 
 @app.post("/upload-image")
@@ -87,6 +90,56 @@ def search_similar_images(file: UploadFile = File(...), limit: int = 10, return_
         image = Image(pil_image)
 
         results = weaviate_repository.get_similar_images(image, limit, return_images)
+
+        return [result.metadata for result in results]
+
+    except HTTPException as exc:
+        # Handle the HTTP exception (e.g., not a valid image file)
+        return {"error": str(exc.detail)}
+
+
+class RequestText(BaseModel):
+    text: str
+    metadata: dict
+
+
+@app.post('/upload-text')
+def upload_text(text: RequestText):
+    try:
+        text = Text(text.text, text.metadata)
+        weaviate_repository.import_texts([text])
+
+        return text.metadata_as_json()
+
+    except HTTPException as exc:
+        # Handle the HTTP exception (e.g., not a valid image file)
+        return {"error": str(exc.detail)}
+
+
+@app.post('/upload-text-bulk')
+def upload_text_bulk(texts: List[RequestText]):
+    try:
+        texts = [Text(text.text, text.metadata) for text in texts]
+        weaviate_repository.import_texts(texts)
+
+        return [text.metadata_as_json() for text in texts]
+
+    except HTTPException as exc:
+        # Handle the HTTP exception (e.g., not a valid image file)
+        return {"error": str(exc.detail)}
+
+
+class TextQuery(BaseModel):
+    text: str
+    limit: int = 10
+
+
+@app.post('/search-similar-texts')
+def search_similar_texts(text_query: TextQuery):
+    try:
+        text = Text(text_query.text, {})
+
+        results = weaviate_repository.get_similar_texts(text, text_query.limit)
 
         return [result.metadata for result in results]
 

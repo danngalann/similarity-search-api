@@ -8,7 +8,7 @@ from src.model.Text import Text
 
 class WeaviateRepository:
     def __init__(self):
-        self.client = weaviate.Client("http://weaviate:8080")
+        self.client = weaviate.Client("http://localhost:8080")
         self.client.batch.configure(
             batch_size=100,
             dynamic=True,
@@ -110,11 +110,12 @@ class WeaviateRepository:
         return [Image.from_result(r) for r in result["data"]["Get"]["Image"]]
 
     def get_similar_texts(self, source_text: Text, limit: int = 10) -> List[Text]:
-        source_text_dict = {
-            "text": source_text.text,
+        content = {
+            "concepts": source_text.text,
         }
-        result = (self.client.query.get("Text", ["metadata"])
-                  .with_near_text(source_text_dict, encode=False)
+
+        result = (self.client.query.get("Text", ["metadata", "text"])
+                  .with_near_text(content)
                   .with_limit(limit)
                   .do())
 
