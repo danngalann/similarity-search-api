@@ -2,18 +2,17 @@ import imghdr
 import json
 from io import BytesIO
 from typing import List
-from PIL import Image as PILImage
 
+from PIL import Image as PILImage
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.openapi.utils import get_openapi
-from pydantic import BaseModel
 from starlette import status
 
-from src.types.fastapi_types import BulkImageUploadResponse, ImageUploadResponse, TextUploadResponse, ErrorResponse, \
-    ImageSimilarityResponse, RequestText, TextQuery, TextSimilarityResponse
 from src.model.Image import Image
 from src.model.Text import Text
 from src.repository.WeaviateRepository import WeaviateRepository
+from src.types.fastapi_types import BulkImageUploadResponse, ImageUploadResponse, TextUploadResponse, ErrorResponse, \
+    ImageSimilarityResponse, RequestText, TextQuery, TextSimilarityResponse
 
 app = FastAPI()
 weaviate_repository = WeaviateRepository()
@@ -36,6 +35,12 @@ def create_openapi_schema():
 
 
 app.openapi = create_openapi_schema
+
+
+@app.post('/create-schema')
+def create_schema():
+    weaviate_repository.create_schema()
+    return {"message": "Schema created"}
 
 
 @app.post(
