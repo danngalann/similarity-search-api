@@ -7,7 +7,10 @@ from PIL import Image as PILImage
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel
+from starlette import status
 
+from src.types.fastapi_types import BulkImageUploadResponse, ImageUploadResponse, TextUploadResponse, ErrorResponse, \
+    ImageSimilarityResponse, RequestText, TextQuery, TextSimilarityResponse
 from src.model.Image import Image
 from src.model.Text import Text
 from src.repository.WeaviateRepository import WeaviateRepository
@@ -35,7 +38,11 @@ def create_openapi_schema():
 app.openapi = create_openapi_schema
 
 
-@app.post("/upload-image")
+@app.post(
+    "/upload-image",
+    response_model=ImageUploadResponse,
+    responses={status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse}}
+)
 def upload_image(file: UploadFile = File(...), metadata: str = Form(...)):
     try:
         # Validate the uploaded file
@@ -47,11 +54,13 @@ def upload_image(file: UploadFile = File(...), metadata: str = Form(...)):
         return {"filename": file.filename, "metadata": metadata}
 
     except HTTPException as exc:
-        # Handle the HTTP exception (e.g., not a valid image file)
-        return {"error": str(exc.detail)}
+        return {"error": str(exc.detail), "filename": file.filename}
 
 
-@app.post("/upload-image-bulk")
+@app.post(
+    "/upload-image-bulk",
+    response_model=BulkImageUploadResponse,
+)
 def upload_image_bulk(files: List[UploadFile] = File(...), metadata: str = Form(...)):
     uploaded_images_for_response = []
     images_for_weaviate = []
@@ -81,7 +90,10 @@ def upload_image_bulk(files: List[UploadFile] = File(...), metadata: str = Form(
     return {"uploaded_images": uploaded_images_for_response, "errors": errors}
 
 
-@app.post('/search-similar-images')
+@app.post(
+    '/search-similar-images',
+    response_model=List[ImageSimilarityResponse]
+)
 def search_similar_images(file: UploadFile = File(...), limit: int = 10, return_images: bool = False):
     try:
         # Validate the uploaded file
@@ -91,60 +103,57 @@ def search_similar_images(file: UploadFile = File(...), limit: int = 10, return_
 
         results = weaviate_repository.get_similar_images(image, limit, return_images)
 
-        return [result.metadata for result in results]
+        return [{"metadata": result.metadata, "image": result.image_as_base64()} for result in results]
 
     except HTTPException as exc:
         # Handle the HTTP exception (e.g., not a valid image file)
         return {"error": str(exc.detail)}
 
 
-class RequestText(BaseModel):
-    text: str
-    metadata: dict
-
-
-@app.post('/upload-text')
+@app.post(
+    '/upload-text',
+    response_model=TextUploadResponse
+)
 def upload_text(text: RequestText):
     try:
         text = Text(text.text, text.metadata)
         weaviate_repository.import_texts([text])
 
-        return text.metadata_as_json()
+        return {"metadata": text.metadata_as_json()}
 
     except HTTPException as exc:
         # Handle the HTTP exception (e.g., not a valid image file)
         return {"error": str(exc.detail)}
 
 
-@app.post('/upload-text-bulk')
+@app.post(
+    '/upload-text-bulk',
+    response_model=List[TextUploadResponse]
+)
 def upload_text_bulk(texts: List[RequestText]):
     try:
         texts = [Text(text.text, text.metadata) for text in texts]
         weaviate_repository.import_texts(texts)
 
-        return [text.metadata_as_json() for text in texts]
+        return [{"metadata": text.metadata_as_json()} for text in texts]
 
     except HTTPException as exc:
-        # Handle the HTTP exception (e.g., not a valid image file)
         return {"error": str(exc.detail)}
 
 
-class TextQuery(BaseModel):
-    text: str
-    limit: int = 10
-
-
-@app.post('/search-similar-texts')
+@app.post(
+    '/search-similar-texts',
+    response_model=List[TextSimilarityResponse]
+)
 def search_similar_texts(text_query: TextQuery):
     try:
         text = Text(text_query.text, {})
 
         results = weaviate_repository.get_similar_texts(text, text_query.limit)
 
-        return [result.metadata for result in results]
+        return [{"metadata": result.metadata} for result in results]
 
     except HTTPException as exc:
-        # Handle the HTTP exception (e.g., not a valid image file)
         return {"error": str(exc.detail)}
 
 
